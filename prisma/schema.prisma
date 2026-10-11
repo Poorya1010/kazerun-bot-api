@@ -1,0 +1,614 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ReportStatus {
+  NEW
+  NEEDS_INFO
+  READY_FOR_REVIEW
+  IN_REVIEW
+  REFERRED
+  WAITING_RESPONSE
+  RESOLVED
+  REJECTED
+  PUBLISHED
+}
+
+enum ReportPriority {
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model User {
+  id             String   @id @default(uuid())
+  platform       String
+  platformUserId String
+  platformChatId String?
+  displayName    String?
+  username       String?
+  phone          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reports Report[]
+
+  @@unique([platform, platformUserId])
+  @@index([platform])
+}
+
+model Report {
+  id           String @id @default(uuid())
+  trackingCode String @unique
+  sourceMessageKey String? @unique
+  submissionCompletedAt DateTime?
+
+  userId   String?
+  text     String
+  location String?
+  category String?
+
+  status   ReportStatus   @default(NEW)
+  priority ReportPriority @default(NORMAL)
+
+  aiStatus String @default("not_checked")
+
+  aiQuestions Json?
+  userAnswers Json?
+
+  aiSummary              String?
+  aiSuggestedDepartments Json?
+  aiRiskFlags            Json?
+  aiConfidence           Float?
+  aiActionability        String?
+  aiMissingCriticalInfo  Json?
+  aiNeedsHumanReview     Boolean?
+  aiModel                String?
+  aiAnalyzedAt           DateTime?
+
+  draftNews   String?
+  adminNote   String?
+  finalResult String?
+
+  assignedToPlatformUserId String?
+  assignedToDisplayName    String?
+  assignedAt               DateTime?
+
+  currentDepartment String?
+  followUpDueAt     DateTime?
+  lastFollowUpAt    DateTime?
+  followUpCount     Int       @default(0)
+  overdueNotifiedAt DateTime?
+
+  isPublicDemand      Boolean   @default(false)
+  publicTitle         String?
+  publicSummary       String?
+  publicPublishedAt   DateTime?
+  publicSupportCount       Int       @default(0)
+  publicAffectedCount      Int       @default(0)
+  publicExperienceCount    Int       @default(0)
+  publicEvidenceCount      Int       @default(0)
+  publicFollowerCount      Int       @default(0)
+  publicSolvedConfirmCount Int       @default(0)
+  publicUnresolvedCount    Int       @default(0)
+  publicPriorityScore      Int       @default(0)
+  publicLastActivityAt     DateTime?
+  publishedAt              DateTime?
+
+  editorialPlatform  String?
+  editorialChatId    String?
+  editorialMessageId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  statusHistory ReportStatusHistory[]
+  media ReportMedia[]
+  editorialNotes ReportEditorialNote[]
+  departmentResponses ReportDepartmentResponse[]
+  publicSupports ReportPublicSupport[]
+  publicAffectedUsers ReportPublicAffected[]
+  publicExperiences ReportPublicExperience[]
+  publicEvidence ReportPublicEvidence[]
+  publicFollowers ReportPublicFollower[]
+  publicResolutionVotes ReportPublicResolutionVote[]
+
+  @@index([status])
+  @@index([category])
+  @@index([createdAt])
+  @@index([userId])
+  @@index([followUpDueAt])
+  @@index([isPublicDemand, publicSupportCount])
+  @@index([isPublicDemand, publicPriorityScore])
+}
+
+model ReportStatusHistory {
+  id       String @id @default(uuid())
+  reportId String
+
+  fromStatus ReportStatus?
+  toStatus   ReportStatus
+
+  adminNote   String?
+  finalResult String?
+
+  changedBy String?
+  actorType String @default("editorial")
+
+  createdAt DateTime @default(now())
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@index([toStatus])
+  @@index([createdAt])
+  @@index([reportId, createdAt])
+}
+
+model ReportMedia {
+  id       String @id @default(uuid())
+  reportId String
+
+  platform        String
+  sourceChatId    String
+  sourceMessageId String
+  mediaType       String
+
+  fileId       String?
+  fileUniqueId String?
+  caption      String?
+  mimeType     String?
+  fileName     String?
+
+  createdAt DateTime @default(now())
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@index([platform])
+  @@index([mediaType])
+  @@index([createdAt])
+  @@unique([reportId, platform, sourceChatId, sourceMessageId, mediaType])
+}
+
+
+model ReportEditorialNote {
+  id       String @id @default(uuid())
+  reportId String
+
+  text     String
+  noteType String @default("note")
+
+  createdByPlatformUserId String?
+  createdByDisplayName    String?
+
+  createdAt DateTime @default(now())
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@index([createdAt])
+  @@index([noteType])
+}
+
+
+model ReportDepartmentResponse {
+  id       String @id @default(uuid())
+  reportId String
+
+  text String?
+
+  sourceChatId    String?
+  sourceMessageId String?
+  mediaType       String?
+  fileId          String?
+  fileUniqueId    String?
+  caption         String?
+  mimeType        String?
+  fileName        String?
+
+  createdByPlatformUserId String?
+  createdByDisplayName    String?
+  createdAt DateTime @default(now())
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@index([createdAt])
+}
+
+model ReportPublicSupport {
+  id       String @id @default(uuid())
+  reportId String
+  platform String
+  platformUserId String
+  createdAt DateTime @default(now())
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, platform, platformUserId])
+  @@index([reportId])
+  @@index([createdAt])
+}
+
+model ReportPublicAffected {
+  id             String   @id @default(uuid())
+  reportId       String
+  platform       String
+  platformUserId String
+  createdAt      DateTime @default(now())
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, platform, platformUserId])
+  @@index([reportId])
+  @@index([createdAt])
+}
+
+model ReportPublicExperience {
+  id             String   @id @default(uuid())
+  reportId       String
+  platform       String
+  platformUserId String
+  text           String
+  status         String   @default("PENDING")
+  likeCount      Int      @default(0)
+  flagCount      Int      @default(0)
+  isPinned       Boolean  @default(false)
+  moderatedBy    String?
+  moderatedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  votes ReportPublicExperienceVote[]
+  flags ReportPublicExperienceFlag[]
+
+  @@index([reportId, status])
+  @@index([reportId, likeCount])
+  @@index([createdAt])
+}
+
+model ReportPublicExperienceVote {
+  id             String   @id @default(uuid())
+  experienceId   String
+  platform       String
+  platformUserId String
+  createdAt      DateTime @default(now())
+
+  experience ReportPublicExperience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+
+  @@unique([experienceId, platform, platformUserId])
+  @@index([experienceId])
+}
+
+model ReportPublicExperienceFlag {
+  id             String   @id @default(uuid())
+  experienceId   String
+  platform       String
+  platformUserId String
+  createdAt      DateTime @default(now())
+
+  experience ReportPublicExperience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+
+  @@unique([experienceId, platform, platformUserId])
+  @@index([experienceId])
+}
+
+model ReportPublicEvidence {
+  id              String   @id @default(uuid())
+  reportId        String
+  platform        String
+  platformUserId  String
+  sourceChatId    String
+  sourceMessageId String
+  mediaType       String
+  fileId          String?
+  fileUniqueId    String?
+  caption         String?
+  mimeType        String?
+  fileName        String?
+  status          String   @default("PENDING")
+  moderatedBy     String?
+  moderatedAt     DateTime?
+  createdAt       DateTime @default(now())
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, platform, sourceChatId, sourceMessageId, mediaType])
+  @@index([reportId, status])
+  @@index([createdAt])
+}
+
+model ReportPublicFollower {
+  id             String   @id @default(uuid())
+  reportId       String
+  platform       String
+  platformUserId String
+  createdAt      DateTime @default(now())
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, platform, platformUserId])
+  @@index([reportId])
+}
+
+model ReportPublicResolutionVote {
+  id             String   @id @default(uuid())
+  reportId       String
+  platform       String
+  platformUserId String
+  vote           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, platform, platformUserId])
+  @@index([reportId, vote])
+}
+
+
+model CityService {
+  id               String   @id @default(uuid())
+  slug             String   @unique
+  title            String
+  category         String
+  aliases          Json?
+  shortDescription String?
+  address          String?
+  phone            String?
+  hours            String?
+  website          String?
+  mapUrl           String?
+  sourceLabel      String?
+  sourceUrl        String?
+  isVerified       Boolean  @default(false)
+  verifiedAt       DateTime?
+  verifiedBy       String?
+  isActive         Boolean  @default(true)
+  sortOrder        Int      @default(0)
+  createdBy        String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  feedback CityServiceFeedback[]
+
+  @@index([category, isActive])
+  @@index([isVerified, isActive])
+  @@index([updatedAt])
+}
+
+model CityServiceFeedback {
+  id             String   @id @default(uuid())
+  cityServiceId  String?
+  platform       String
+  platformUserId String
+  feedbackType   String
+  text           String
+  status         String   @default("NEW")
+  reviewedAt     DateTime?
+  reviewedBy     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  cityService CityService? @relation(fields: [cityServiceId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([cityServiceId])
+  @@index([platform, platformUserId])
+}
+
+
+model CityNews {
+  id          String   @id @default(uuid())
+  title       String
+  category    String
+  body        String
+  alertLevel  String   @default("NORMAL")
+  sourceLabel String?
+  sourceUrl   String?
+
+  isPublished Boolean  @default(false)
+  publishedAt DateTime?
+  isArchived  Boolean  @default(false)
+
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deliveries CityNewsDelivery[]
+
+  @@index([isPublished, isArchived, publishedAt])
+  @@index([category, isPublished, publishedAt])
+  @@index([alertLevel, isPublished, publishedAt])
+}
+
+model CityNewsSubscription {
+  id             String   @id @default(uuid())
+  platform       String
+  platformUserId String
+  category       String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([platform, platformUserId, category])
+  @@index([platform, platformUserId, isActive])
+  @@index([category, isActive])
+}
+
+model CityNewsDelivery {
+  id             String   @id @default(uuid())
+  newsId         String
+  platform       String
+  platformUserId String
+  status         String   @default("PENDING")
+  deliveredAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  news CityNews @relation(fields: [newsId], references: [id], onDelete: Cascade)
+
+  @@unique([newsId, platform, platformUserId])
+  @@index([newsId, status])
+  @@index([platform, platformUserId])
+}
+
+model AdPackage {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  title       String
+  description String?
+  priceToman  Int
+  placements  Json
+  pinHours    Int      @default(0)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdBy   String?
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orders AdOrder[]
+
+  @@index([isActive, sortOrder])
+  @@index([updatedAt])
+}
+
+model AdOrder {
+  id             String   @id @default(uuid())
+  orderCode      String   @unique
+  platform       String
+  platformUserId String
+  displayName    String?
+  username       String?
+
+  packageId       String
+  packageSnapshot Json
+  amountToman     Int
+  status          String   @default("AWAITING_PAYMENT")
+
+  businessName      String?
+  subject           String?
+  rawAdText         String?
+  finalAdText       String?
+  phone             String?
+  address           String?
+  links             String?
+  cta               String?
+  preferredSchedule String?
+  extraInfo          String?
+
+  aiReview     Json?
+  aiModel      String?
+  aiAnalyzedAt DateTime?
+
+  reviewNote          String?
+  finalTextSelectedBy String?
+  approvedBy          String?
+  approvedAt          DateTime?
+  submittedAt         DateTime?
+  paidAt              DateTime?
+  completedAt         DateTime?
+
+  assignedToPlatformUserId String?
+  assignedToDisplayName    String?
+  assignedAt               DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  package      AdPackage      @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  payments     AdPayment[]
+  assets       AdAsset[]
+  revisions    AdRevision[]
+  publications AdPublication[]
+
+  @@index([platform, platformUserId, createdAt])
+  @@index([status, updatedAt])
+  @@index([packageId])
+  @@index([paidAt])
+}
+
+model AdPayment {
+  id              String   @id @default(uuid())
+  orderId         String
+  provider        String
+  amountRial      Int
+  authority       String?  @unique
+  refId           String?
+  cardPan         String?
+  cardHash        String?
+  fee             Int?
+  status          String   @default("PENDING")
+  providerMessage String?
+  verifiedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  order AdOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@index([status, verifiedAt])
+}
+
+model AdAsset {
+  id                String   @id @default(uuid())
+  orderId           String
+  platform          String
+  platformUserId    String
+  sourceChatId      String
+  sourceMessageId   String
+  mediaType         String
+  fileId            String?
+  fileUniqueId      String?
+  caption           String?
+  mimeType          String?
+  fileName          String?
+  editorialCopiedAt DateTime?
+  createdAt         DateTime @default(now())
+
+  order AdOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, platform, sourceChatId, sourceMessageId])
+  @@index([orderId, createdAt])
+}
+
+model AdRevision {
+  id        String   @id @default(uuid())
+  orderId   String
+  actorType String
+  actorId   String?
+  text      String
+  createdAt DateTime @default(now())
+
+  order AdOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+}
+
+model AdPublication {
+  id          String   @id @default(uuid())
+  orderId     String
+  channel     String
+  sequence    Int
+  postUrl     String?
+  publishedBy String?
+  publishedAt DateTime @default(now())
+
+  order AdOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, channel, sequence])
+  @@index([orderId, publishedAt])
+  @@index([channel, publishedAt])
+}
